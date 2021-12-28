@@ -1,0 +1,241 @@
+---
+title: "TaASN-B2 paper figures"
+author: "Joseph Oddy"
+date: "28/12/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(rstatix)
+library(ggpubr)
+library(RColorBrewer)
+library(dplyr)
+library(waffle)
+library(plyr)
+theme_set(theme_pubclean())
+```
+
+## Waffle plot
+
+Import data (pie) as csv and create count dataframe of TaASN-B2 positive and negative varieties grouped by milling type (as classified by UK Flour millers).
+
+```{r, echo = FALSE}
+pie<-read.csv("C:/Users/Joe/OneDrive - Rothamsted Research/PhD/ASN2 B project/R data and scripts/201218 pie chart data.csv")
+```
+
+```{r}
+pie %>% 
+  dplyr::group_by(Type) %>% 
+  dplyr::count(Type, ASN_B2) -> counts_df
+```
+
+Plot this as waffle plot with Github version of waffle package (includes geom_waffle function).
+```{r}
+
+allwaffle <- ggplot(counts_df, aes(fill = ASN_B2, values = n)) +
+  geom_waffle(color = "white", size = 1, n_rows = 5, flip = TRUE) +
+  facet_wrap(~Type, nrow = 1, strip.position = "bottom") +
+  scale_x_discrete()   + 
+  scale_y_continuous(labels = function(x) x * 5, expand = c(0,0)) + coord_equal() +
+  labs(x = "NABIM groups", y = "Variety count") +
+  theme_minimal() +
+  theme(panel.grid = element_blank(), axis.ticks.y = element_line(),legend.position="top") +
+  guides(fill = guide_legend(reverse = TRUE))
+allwaffle
+```
+
+## qPCR plots
+
+Import data (qpcr), subset by variety, and calculate standard errors for each variety/timepoint/homeologue combination.
+
+```{r, echo = FALSE, message=FALSE}
+qpcr<-read.csv("C:/Users/Joe/OneDrive - Rothamsted Research/PhD/ASN2 B project/ASN2 B paper ea/qPCR/R scripts and data/201104 summary data restructured.csv", stringsAsFactors = TRUE)
+
+cad <- subset(qpcr, ï..Genotype=="Cadenza")
+cla <- subset(qpcr, ï..Genotype=="Claire")
+dux <- subset(qpcr, ï..Genotype=="Duxford")
+spa <- subset(qpcr, ï..Genotype=="Spark")
+```
+
+```{r, message=FALSE}
+cad.summary.se <- cad %>% # the names of the new data frame and the data frame to be summarised
+  group_by(Timepoint, Homeologue) %>%   # the grouping variable
+  dplyr::summarise( # calculates the mean of each group
+    sd_expression = sd(Expression),
+    SE_expression = sd(Expression)/sqrt(n()),
+    Expression = mean(Expression),# calculates the standard deviation of each group
+    n_expression = n()) %>%
+  mutate(se.expression = sd_expression / sqrt(n_expression),
+         lower.ci.expression = Expression - qt(1 - (0.05 / 2), n_expression - 1) * se.expression,
+         upper.ci.expression = Expression + qt(1 - (0.05 / 2), n_expression - 1) * se.expression) # calculates the standard error of each group
+
+cla.summary.se <- cla %>% # the names of the new data frame and the data frame to be summarised
+  group_by(Timepoint, Homeologue) %>%   # the grouping variable
+  dplyr::summarise( # calculates the mean of each group
+    sd_expression = sd(Expression),
+    SE_expression = sd(Expression)/sqrt(n()),
+    Expression = mean(Expression),# calculates the standard deviation of each group
+    n_expression = n()) %>%
+  mutate(se.expression = sd_expression / sqrt(n_expression),
+         lower.ci.expression = Expression - qt(1 - (0.05 / 2), n_expression - 1) * se.expression,
+         upper.ci.expression = Expression + qt(1 - (0.05 / 2), n_expression - 1) * se.expression) # calculates the standard error of each group
+
+dux.summary.se <- dux %>% # the names of the new data frame and the data frame to be summarised
+  group_by(Timepoint, Homeologue) %>%   # the grouping variable
+  dplyr::summarise( # calculates the mean of each group
+    sd_expression = sd(Expression),
+    SE_expression = sd(Expression)/sqrt(n()),
+    Expression = mean(Expression),# calculates the standard deviation of each group
+    n_expression = n()) %>%
+  mutate(se.expression = sd_expression / sqrt(n_expression),
+         lower.ci.expression = Expression - qt(1 - (0.05 / 2), n_expression - 1) * se.expression,
+         upper.ci.expression = Expression + qt(1 - (0.05 / 2), n_expression - 1) * se.expression) # calculates the standard error of each group
+
+spa.summary.se <- spa %>% # the names of the new data frame and the data frame to be summarised
+  group_by(Timepoint, Homeologue) %>%   # the grouping variable
+  dplyr::summarise( # calculates the mean of each group
+    sd_expression = sd(Expression),
+    SE_expression = sd(Expression)/sqrt(n()),
+    Expression = mean(Expression),# calculates the standard deviation of each group
+    n_expression = n()) %>%
+  mutate(se.expression = sd_expression / sqrt(n_expression),
+         lower.ci.expression = Expression - qt(1 - (0.05 / 2), n_expression - 1) * se.expression,
+         upper.ci.expression = Expression + qt(1 - (0.05 / 2), n_expression - 1) * se.expression) # calculates the standard error of each group
+```
+
+Plot qPCR data with calculated standard errors.
+
+```{r, fig.height = 7.5, fig.width = 7.5, fig.align = "center"}
+cadplot <- ggplot(cad, aes(Timepoint, Expression, color = Homeologue)) +
+  geom_col(data = cad.summary.se, position = position_dodge(0.8), 
+           width = 0.7, fill = "white") +
+  geom_jitter(position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.8), size = 1) +
+  geom_errorbar(aes(ymin = Expression-SE_expression, ymax = Expression+SE_expression), data = cad.summary.se, 
+                width = 0.2, position = position_dodge(0.8)) +
+  ylim(0,0.8) + ylab(expression(RE~(E^"-Ct target"/E^"-Ct reference"))) + 
+  xlab("Timepoint")+ theme_bw()
+
+claplot <- ggplot(cla, aes(Timepoint, Expression, color = Homeologue)) +
+  geom_col(data = cla.summary.se, position = position_dodge(0.8), 
+           width = 0.7, fill = "white") +
+  geom_jitter(position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.8), size = 1) +
+  geom_errorbar(aes(ymin = Expression-SE_expression, ymax = Expression+SE_expression), data = cla.summary.se, 
+                width = 0.2, position = position_dodge(0.8))+
+  ylim(0,0.4)+ ylab(expression(RE~(E^"-Ct target"/E^"-Ct reference"))) + 
+  xlab("Timepoint")+ theme_bw()
+
+duxplot <- ggplot(dux, aes(Timepoint, Expression, color = Homeologue)) +
+  geom_col(data = dux.summary.se, position = position_dodge(0.8), 
+           width = 0.7, fill = "white") +
+  geom_jitter(position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.8), size = 1) +
+  geom_errorbar(aes(ymin = Expression-SE_expression, ymax = Expression+SE_expression), data = dux.summary.se, 
+                width = 0.2, position = position_dodge(0.8)) +
+  ylim(0,2.0) + ylab(expression(RE~(E^"-Ct target"/E^"-Ct reference"))) + 
+  xlab("Timepoint") + theme_bw()
+
+spaplot <- ggplot(spa, aes(Timepoint, Expression, color = Homeologue)) +
+  geom_col(data = spa.summary.se, position = position_dodge(0.8), 
+           width = 0.7, fill = "white") +
+  geom_jitter(position = position_jitterdodge(jitter.width = 0.1, dodge.width = 0.8), size = 1) +
+  geom_errorbar(aes(ymin = Expression-SE_expression, ymax = Expression+SE_expression), data = spa.summary.se, 
+                width = 0.2, position = position_dodge(0.8)) +
+  ylim(0,2.5) + ylab(expression(RE~(E^"-Ct target"/E^"-Ct reference"))) + 
+  xlab("Timepoint") + theme_bw()
+
+ggarrange(cadplot, duxplot, claplot, spaplot, labels = c("a.","b.","c.","d."), 
+          common.legend = TRUE, ncol = 2, nrow = 2)
+```
+
+## Box-and-scatter plots
+
+Data for each plot (combined, first (trial), second (trial), REML) are first imported as separate csv files.
+
+```{r, echo = FALSE}
+combined <- read.csv("C:/Users/Joe/OneDrive - Rothamsted Research/PhD/ASN2 B project/R data and scripts/210408 combined years data.csv")
+
+combined$ASN_B2 <- factor(combined$ASN_B2, levels=c("Present", "Absent"))
+
+second <- read.csv("C:/Users/Joe/OneDrive - Rothamsted Research/PhD/ASN2 B project/R data and scripts/210330 second year data.csv")
+
+first <- read.csv("C:/Users/Joe/OneDrive - Rothamsted Research/PhD/ASN2 B project/R data and scripts/210330 first year data.csv")
+
+first$ASN_B2 <- factor(first$ASN_B2, levels=c(" Present", " Absent"))
+
+reml <- read.csv("C:/Users/Joe/OneDrive - Rothamsted Research/PhD/ASN2 B project/R data and scripts/201216 ASN2 both years REML predicted means.csv")
+
+reml$ASN_B2 <- factor(reml$ASN_B2, levels=c("Present", "Absent"))
+```
+
+First plot (A.) looks at each trial without separating the effect of sulphur:
+
+```{r}
+yearplot <- ggplot(combined, aes(x = ASN_B2, y = Asn))
+
+yearplot <- yearplot + geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(aes(colour = factor(Treatment)),width = 0.2, size = 1) +
+  ylab(expression(Free~asparagine~(mmol~per~kg))) + xlab("Sulphur Treatment (2011 - 2012)") +
+  stat_summary(aes(x=ASN_B2, y=Asn, group = Season),fun=mean, geom="line", linetype = "dashed")+ 
+  stat_summary(aes(x=ASN_B2, y=Asn, group = Season),fun=mean, geom="point", shape = 3)+
+  theme(legend.key=element_blank(),legend.background=element_blank())+ theme_bw() +
+  facet_wrap(. ~ Season, scales = "free_y") +
+  scale_colour_manual(values = c("#004D40", "#FFC107"))+
+  scale_y_continuous(expand = expansion(mult = c(0.1, 0.3)))
+
+```
+
+Second and third plots (B. and C.) separate the effects of sulphur:
+
+```{r}
+sbp1 <- ggplot(first, aes(x = ASN_B2, y = Asn))
+
+sbp1 <- sbp1 + geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(aes(colour = factor(Treatment)),width = 0.2, size = 1) +
+  ylab(expression(Free~asparagine~(mmol~per~kg))) + xlab("Sulphur Treatment (2011 - 2012)") +
+  stat_summary(aes(x=ASN_B2, y=Asn, group = Treatment),fun=mean, geom="line", linetype = "dashed")+ 
+  stat_summary(aes(x=ASN_B2, y=Asn, group = Treatment),fun=mean, geom="point", shape = 3)+
+  theme(legend.key=element_blank(),legend.background=element_blank())+ theme_bw() +
+  facet_wrap(. ~ Treatment, scales = "free_y") +
+  scale_colour_manual(values = c("#004D40", "#FFC107"))+
+  scale_y_continuous(expand = expansion(mult = c(0.1, 0.3)))
+
+sbp2 <- ggplot(second, aes(x = ASN_B2, y = Asn))
+
+sbp2 <- sbp2 + geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(aes(colour = factor(Treatment)),width = 0.2, size = 1) +
+  ylab(expression(Free~asparagine~(mmol~per~kg))) + xlab("Sulphur Treatment (2012 - 2013)") +
+  stat_summary(aes(x=ASN_B2, y=Asn, group = Treatment),fun=mean, geom="line", linetype = "dashed")+ 
+  stat_summary(aes(x=ASN_B2, y=Asn, group = Treatment),fun=mean, geom="point", shape = 3)+
+  theme(legend.key=element_blank(),legend.background=element_blank())+ theme_bw() +
+  facet_wrap(. ~ Treatment, scales = "free_y")+
+  scale_colour_manual(values = c("#004D40", "#FFC107"))+
+  scale_y_continuous(expand = expansion(mult = c(0.1, 0.3)))
+```
+
+Fourth plot (D.) uses predicted means from GenStat REML analysis for those varieties present in both trials:
+
+```{r}
+remlplot <- ggplot(reml, aes(x = ASN_B2, y = Asn))
+
+remlplot <- remlplot + geom_boxplot(outlier.shape = NA) + 
+  geom_jitter(aes(colour = factor(Treatment)),width = 0.2, size = 1) +
+  ylab(expression(Free~asparagine~(mmol~per~kg))) + xlab("ASN-B2 (REML)") +
+  stat_summary(aes(x=ASN_B2, y=Asn, group = Treatment),fun=mean, geom="line", linetype = "dashed")+ 
+  stat_summary(aes(x=ASN_B2, y=Asn, group = Treatment),fun=mean, geom="point", shape = 3)+
+  theme(legend.key=element_blank(),legend.background=element_blank())+ theme_bw() +
+  facet_wrap(. ~ Treatment, scales = "free_y") +
+  scale_colour_manual(values = c("#004D40", "#FFC107"))+
+  scale_y_continuous(expand = expansion(mult = c(0.1, 0.3)))
+```
+
+All box-and-scatter plots plotted together:
+
+```{r, fig.height = 7.5, fig.width = 12.5, fig.align = "center"}
+all <- ggarrange(yearplot, sbp1, sbp2, remlplot, labels = c("a.","b.","c.", "d."), 
+                 common.legend = TRUE, ncol = 4, nrow = 1)
+
+all
+```
+
